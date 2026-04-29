@@ -5,7 +5,6 @@ from app.Handlers import router
 
 
 async def main():
-    # await async_main()
     TOKEN = getenv('BOT_TOKEN')
     if not TOKEN:
         return

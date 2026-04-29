@@ -1,12 +1,9 @@
 from aiogram import Router, F
-from aiogram.enums import ParseMode
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, CallbackQuery
+
+from aiogram.types import Message
 from aiogram.filters import Command
 
 from app.Base import Base
-# import app.Keyboards as kb
 
 router = Router()
 base = Base()
