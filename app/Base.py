@@ -17,10 +17,10 @@ class Base:
         }
 
 
-    @staticmethod
-    def save_dict(user_id: int, data: dict) -> None:
+    async def save_dict(self, user_id: int, data: dict) -> None:
         with open(f"commands/user_{user_id}.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
+        self.commands_dict = self.get_dict(user_id)
 
 
     @staticmethod
@@ -38,35 +38,42 @@ class Base:
             }
 
 
-    async def add_command(self, trigger: str, response: str, user_id: int) -> None:
+    async def add_command(self, trigger: str, text: str, user_id: int) -> None:
+        self.commands_dict = self.get_dict(user_id)
+
         trigger_lower = trigger.strip().lower()
         if not trigger_lower:
             raise ValueError("Триггер не может быть пустым")
-        self.commands_dict[trigger_lower] = response.strip()
-        await asyncio.to_thread(self.save_dict, user_id, self.commands_dict)
-        self.commands_dict = self.get_dict(user_id)
+
+        self.commands_dict[trigger_lower] = text.strip()
+        await self.save_dict(user_id, self.commands_dict)
 
 
     async def list_commands(self, user_id: int) -> str:
-        r = []
-        for key, value in self.get_dict(user_id).items():
-            r.append(f'{key}: {value}')
-        return '\n'.join(r)
+        self.commands_dict = self.get_dict(user_id)
+
+        commands = []
+        for key, value in self.commands_dict.items():
+            commands.append(f'{key}: {value}')
+
+        return '\n'.join(commands)
 
 
     async def remove_command(self, user_id: int, trigger: str) -> None:
-        trigger_lower = trigger.strip().lower()
+        self.commands_dict = self.get_dict(user_id)
 
+        trigger_lower = trigger.strip().lower()
         if trigger_lower not in self.commands_dict:
             raise KeyError(f"Триггер '{trigger_lower}' не найден")
 
         del self.commands_dict[trigger_lower]
 
-        await asyncio.to_thread(self.save_dict, user_id, self.commands_dict)
-        self.commands_dict = self.get_dict(user_id)
+        await self.save_dict(user_id, self.commands_dict)
 
 
     async def send(self, text:str|None, from_user_u:User|None,from_user_t:User|None, sender_chat:Chat|None) -> str:
+        self.commands_dict = self.get_dict(from_user_u.id)
+
         text:list = text.split('\n')
         remark = ''
 

@@ -15,21 +15,22 @@ async def command_start(message: Message):
     print(f"message = {message}")
 
 
-@router.message(F.reply_to_message, F.text, lambda msg: msg.text.split('\n')[0].lower() in base.commands_dict.keys())
+@router.message(F.reply_to_message, F.text)
 async def text(message: Message):
-    try:
-        await message.bot.send_message(
-            chat_id = message.chat.id,
-            reply_to_message_id = message.reply_to_message.message_id,
-            text = await base.send(
-                message.text,
-                message.from_user,
-                message.reply_to_message.from_user,
-                message.sender_chat),
-            parse_mode='HTML'
-        )
-    except Exception as e:
-        print(e)
+    if message.text.split('\n')[0].lower() in base.get_dict(message.from_user.id).keys():
+        try:
+            await message.bot.send_message(
+                chat_id = message.chat.id,
+                reply_to_message_id = message.reply_to_message.message_id,
+                text = await base.send(
+                    message.text,
+                    message.from_user,
+                    message.reply_to_message.from_user,
+                    message.sender_chat),
+                parse_mode='HTML'
+            )
+        except Exception as e:
+            print(e)
 
 
 @router.message(F.text.startswith('.срп'))
