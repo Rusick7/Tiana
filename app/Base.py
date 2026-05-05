@@ -1,15 +1,22 @@
-import json
 import html
+import json
 import os
+from dataclasses import dataclass, asdict
 
+import aiofiles
 from aiogram.types import User, Chat
+
+@dataclass
+class UserState:
+    commands_dict: dict
+    new_output: bool = False
 
 
 class Base:
     DEFAULT_STICKER = '❤'
     DEFAULT_REPL = '💬'
     DEFAULT_NEW_OUTPUT = True
-    DEFAULT_NEW_INPUT = True
+    DEFAULT_new_input_command = True
     DEFAULT_COMMANDS = {
         'мяу': DEFAULT_STICKER+' | %u помяукал %t',
         'мяв': DEFAULT_STICKER+' | %u мило мяукнул %t',
@@ -18,108 +25,122 @@ class Base:
     }
 
     def __init__(self) -> None:
-        os.makedirs("commands", exist_ok=True)
-        self.new_output: bool = Base.DEFAULT_NEW_OUTPUT
-        self.commands_dict: dict = Base.DEFAULT_COMMANDS
-        self.new_input: bool = Base.DEFAULT_NEW_INPUT
+        os.makedirs("configurations", exist_ok=True)
+        self.user_state = UserState(
+            new_output=Base.DEFAULT_NEW_OUTPUT,
+            commands_dict=Base.DEFAULT_COMMANDS.copy())
 
 
     @staticmethod
-    def get_dict(user_id: int) -> tuple[bool, bool, dict]:
+    async def get_user_conf(user_id: int) -> UserState:
         try:
-            with open(f"configurations/user_{user_id}.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data['new_input'], data['new_output'], data['commands']
+            async with aiofiles.open(f"configurations/user_{user_id}.json", "r", encoding="utf-8") as f:
+                data = json.loads(await f.read())
+                return UserState(
+                    commands_dict=data['commands_dict'],
+                    new_output=data['new_output'])
 
         except FileNotFoundError:
-            return Base.DEFAULT_NEW_INPUT, Base.DEFAULT_NEW_OUTPUT, Base.DEFAULT_COMMANDS
+            return UserState(
+                new_output=Base.DEFAULT_NEW_OUTPUT,
+                commands_dict=Base.DEFAULT_COMMANDS.copy())
 
 
     @staticmethod
-    async def save_dict(user_id: int, data: dict) -> None:
-        with open(f"commands/user_{user_id}.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+    async def save_dict(user_id: int, data: UserState) -> None:
+        async with aiofiles.open(f"configurations/user_{user_id}.json", "w", encoding="utf-8") as f:
+            await f.write(json.dumps(asdict(data), ensure_ascii=False, indent=4))
 
 
-    def get_commands(self, user_id: int) -> dict:
-        return self.get_dict(user_id)[2]
+    async def get_commands(self, user_id: int) -> dict:
+        self.user_state = await self.get_user_conf(user_id)
+        return self.user_state.commands_dict
 
 
-    async def add_command(self, trigger: str, text: str, user_id: int) -> None:
-        self.new_input, self.new_output, self.commands_dict = self.get_dict(user_id)
+    async def add_command(self, trigger: str, response: str, user_id: int) -> None:
+        self.user_state = await self.get_user_conf(user_id)
 
         trigger_lower = trigger.strip().lower()
         if not trigger_lower:
             raise ValueError("Триггер не может быть пустым")
 
-        self.commands_dict[trigger_lower] = text.strip()
-        await self.save_dict(user_id, {
-            'new_input': self.new_input,
-            'new_output': self.new_output,
-            'commands': self.commands_dict
-        })
+        if '|' not in response:
+            response = Base.DEFAULT_STICKER + ' | ' + response
+
+        self.user_state.commands_dict[trigger_lower] = response.strip()
+        await self.save_dict(user_id, self.user_state)
 
 
     async def list_commands(self, user_id: int) -> str:
-        self.new_input, self.new_output, self.commands_dict = self.get_dict(user_id)
+        commands_dict = await self.get_commands(user_id)
 
         commands = []
-        for key, value in self.commands_dict.items():
-            commands.append(f'{key}: {value}')
+        for key, value in commands_dict.items():
+            if self.user_state.new_output:
+                commands.append(f"{key}: {' '.join(value.split(sep=' ')[2:])}")
+            else:
+                commands.append(f"{key}: {value}")
 
         return '\n'.join(commands)
 
 
     async def remove_command(self, user_id: int, trigger: str) -> None:
-        self.new_input, self.new_output, self.commands_dict = self.get_dict(user_id)
+        self.user_state = await self.get_user_conf(user_id)
 
         trigger_lower = trigger.strip().lower()
-        if trigger_lower not in self.commands_dict:
+        if trigger_lower not in self.user_state.commands_dict:
             raise KeyError(f"Триггер '{trigger_lower}' не найден")
 
-        del self.commands_dict[trigger_lower]
+        del self.user_state.commands_dict[trigger_lower]
 
-        await self.save_dict(user_id, self.commands_dict)
+        await self.save_dict(user_id, self.user_state)
 
 
-    async def send(self, text:str, from_user_u:User,from_user_t:User, sender_chat:Chat|None) -> str:
-        self.new_input, self.new_output, self.commands_dict = self.get_dict(from_user_u.id)
-
-        if self.new_input:
-            text:list = text.split(' ')
-            remark = ' '.join(text[1:]) if text.__len__() > 1 else ''
-        else:
-            text:list = text.split('\n')
-            remark = '\n'.join(text[1:]) if text.__len__() > 1 else ''
-
-        text:str = self.commands_dict[text[0].lower()]
-
+    async def send(self, text:str|None, from_user_u:User,from_user_t:User, sender_chat: Chat|None) -> str:
+        # ---------------- получение -------------------
         try:
-            u = str(self.ut(from_user_u, sender_chat))
-            t = str(self.ut(from_user_t, sender_chat))
-            r = str(text.replace('%u', u).replace('%t', t))
+            parts: list = text.split('\n') # команда + реплика
+            remark = '\n'.join(parts[1:]) if len(parts) > 1 else '' # только реплика
 
-            if self.new_output:
-                r = r[3:]
+            if len(parts) < 2:
+                parts: list = text.split(' ')
+                remark = ' '.join(parts[1:]) if len(parts) > 1 else ''
 
-            if remark.__len__() > 0:
-                r += f'\nС репликой: « {remark} »'
-
-            elif remark.__len__() > 0 and self.new_output:
-                r += f'\n{Base.DEFAULT_REPL} С репликой: « {remark} »'
-
-            return r
+            template: str = (await self.get_commands(from_user_u.id))[parts[0].lower()] # ❤ | %u text %t
 
         except Exception as e:
-            print(f'error_send {e}')
-            return str(text)
+            print(f'Exception_send {e}')
+            raise ValueError(f'Ошибка при получении данных: {e}')
+
+        # ---------------- преобразование -------------------
+        try:
+            if self.user_state.new_output and ' | ' in template:
+                template = ' '.join(template.split(sep=' ')[2:])  # %u text %t
+
+            u: str = self.ut(from_user_u, sender_chat)
+            t: str = self.ut(from_user_t, sender_chat)
+            reply: str = template.replace('%u', u).replace('%t', t) #  {from} text {to}
+
+            if len(remark) > 0 and self.user_state.new_output:
+                reply += f'\nС репликой: « {remark} »' # {r} \n С репликой: « {remark} »
+
+            elif len(remark) > 0:
+                reply += f'\n{Base.DEFAULT_REPL} С репликой: « {remark} »' # {r} \n 💬 С репликой: « {remark} »
+
+            return reply
+
+        except Exception as e:
+            print(f'send_error: {e}')
+            raise e
 
 
     @staticmethod
-    def ut(from_user, sender_chat: Chat | None) -> str:
-        if from_user:
+    def ut(from_user: User, sender_chat: Chat | None) -> str:
+        if sender_chat:  # группа
+            raise ValueError('sender chat')
+        elif from_user:
             return f'<a href="tg://user?id={from_user.id}">{html.escape(from_user.first_name)}</a>'
-        elif sender_chat:
-            return f'<a href="tg://resolve?domain={sender_chat.username}">{html.escape(str(sender_chat.title))}</a>'
+        # elif sender_chat:  # ссылка на группу через @username
+        #     return f'<a href="tg://resolve?domain={sender_chat.username}">{html.escape(str(sender_chat.title))}</a>'
         else:
             return from_user.first_name

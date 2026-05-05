@@ -1,7 +1,6 @@
 from aiogram import Router, F
-
-from aiogram.types import Message
 from aiogram.filters import Command
+from aiogram.types import Message
 
 from app.Base import Base
 
@@ -11,15 +10,13 @@ base = Base()
 
 @router.message(Command('start'))
 async def cmd_start(message: Message):
-    if message.from_user:
-        await message.answer(f"Hello, {message.from_user.full_name}!",)
-        print(f"message = {message}")
+    await message.answer(f"Hello, {message.from_user.full_name}!",)
+    print(f"message = {message}")
 
 
 @router.message(F.reply_to_message, F.text)
 async def rp_command(message: Message):
-    if (message.from_user and message.reply_to_message and message.reply_to_message.from_user and message.text and
-            message.text.split('\n')[0].lower() in base.get_commands(message.from_user.id).keys()):
+    if message.reply_to_message.from_user and message.from_user and not message.reply_to_message.sender_chat:
         try:
             await message.bot.send_message(
                 chat_id = message.chat.id,
@@ -31,43 +28,65 @@ async def rp_command(message: Message):
                     message.sender_chat),
                 parse_mode='HTML'
             )
+        except ValueError as e:
+            print(e)
         except Exception as e:
             print(e)
 
 
 @router.message(F.text.startswith('.срп'))
-async def add_new_trigger(message: Message):
-    if message.text and message.from_user:
-        lines = message.text.split('\n')
-        if len(lines) < 3:
+async def add_new_trigger(message: Message) -> None:
+    dop=0
+    if '|' in message.text:
+        dop = 1
+
+    lines = message.text.split('\n')
+    if len(lines) < 3 + dop:
+        lines = message.text.split(' ')
+        if len(lines) < 3 + dop and dop!=1:
             await message.reply(
                 "Неверный формат. Используйте:\n" +
-                ".срп\n" +
-                "<команда>\n" +
-                "<шаблон ответа с %u и %t>"
+                ".срп\n<команда>\n<шаблон ответа с %u и %t>"
+            )
+            return
+        elif len(lines) < 3 + dop and dop==1:
+            await message.reply(
+                "Неверный формат. Используйте:\n" +
+                ".срп\n<стикер>\n<команда>\n<шаблон ответа с %u и %t>"
             )
             return
 
+    if dop==1:
+        trigger = lines[2].strip()
+        response = lines[1] + ' | ' + '\n'.join(lines[3:]).strip()
+    else:
         trigger = lines[1].strip()
-        response = lines[2].strip()
+        response = ' '.join(lines[2:]).strip()
 
-        if not trigger or not response:
-            await message.reply("Команда или шаблон не должны быть пустыми")
-            return
+    if not trigger or not response:
+        await message.reply("Команда или шаблон не должны быть пустыми")
+        return
 
-        try:
-            await base.add_command(trigger, response, message.from_user.id)
+    try:
+        redact = False
+        if trigger in (await base.get_commands(message.from_user.id)).keys():
+            redact = True
+
+        await base.add_command(trigger, response, message.from_user.id)
+
+        if redact:
+            await message.reply(f"Команда {trigger} изменен")
+        else:
             await message.reply(f"Команда {trigger} добавлен")
-        except Exception as e:
-            print(e)
-            await message.reply(f"Ошибка при сохранении")
+    except Exception as e:
+        print(e)
+        await message.reply(f"Ошибка при сохранении")
 
 
 @router.message(F.text == '.лрп')
 async def list_triggers(message: Message):
     try:
-        if message.from_user:
-            await message.reply(await base.list_commands(message.from_user.id))
+        await message.reply(await base.list_commands(message.from_user.id))
     except Exception as e:
         print(e)
         await message.reply(f"Ошибка при получении")
@@ -75,32 +94,31 @@ async def list_triggers(message: Message):
 
 @router.message(F.text.startswith('.урп'))
 async def remove_trigger(message: Message):
-    if message.text:
+    lines = message.text.split(' ')
+    if len(lines) < 2:
         lines = message.text.split('\n')
         if len(lines) < 2:
             await message.reply(
                 "Неверный формат. Используйте:\n" +
-                ".урп\n" +
-                "<команда>"
+                ".урп <команда>"
             )
             return
 
-        trigger = lines[1].strip()
-        if not trigger:
-            await message.reply("Команда не указана")
-            return
+    trigger = ' '.join(lines[1:]).strip()
+    if not trigger:
+        await message.reply("Команда не указана")
+        return
 
-        try:
-            if message.from_user:
-                await base.remove_command(message.from_user.id, trigger)
-                await message.reply(f"Команда {trigger} удалён")
+    try:
+        await base.remove_command(message.from_user.id, trigger)
+        await message.reply(f"Команда {trigger} удалён")
 
-        except KeyError:
-            await message.reply(f"Команда не найден. Список команд\n{list_triggers}")
+    except KeyError:
+        await message.reply(f"Команда не найден. Список команд\n{list_triggers}")
 
-        except Exception as e:
-            print(e)
-            await message.reply("Ошибка при удалении")
+    except Exception as e:
+        print(e)
+        await message.reply("Ошибка при удалении")
 
 
 
