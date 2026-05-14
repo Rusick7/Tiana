@@ -1,0 +1,9 @@
+sqlalchemy
+asyncio
+aiogram
+aiofiles
+aiosqlite
+pydantic
+pydantic_settings
+datetime
+typing

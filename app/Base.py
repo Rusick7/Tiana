@@ -117,8 +117,8 @@ class Base:
             if self.user_state.new_output and ' | ' in template:
                 template = ' '.join(template.split(sep=' ')[2:])  # %u text %t
 
-            u: str = self.ut(from_user_u, sender_chat)
-            t: str = self.ut(from_user_t, sender_chat)
+            u: str = self.ut(from_user_u)
+            t: str = self.ut(from_user_t)
             reply: str = template.replace('%u', u).replace('%t', t) #  {from} text {to}
 
             if len(remark) > 0 and self.user_state.new_output:
@@ -135,10 +135,8 @@ class Base:
 
 
     @staticmethod
-    def ut(from_user: User, sender_chat: Chat | None) -> str:
-        if sender_chat:  # группа
-            raise ValueError('sender chat')
-        elif from_user:
+    def ut(from_user: User) -> str:
+        if from_user:
             return f'<a href="tg://user?id={from_user.id}">{html.escape(from_user.first_name)}</a>'
         # elif sender_chat:  # ссылка на группу через @username
         #     return f'<a href="tg://resolve?domain={sender_chat.username}">{html.escape(str(sender_chat.title))}</a>'
