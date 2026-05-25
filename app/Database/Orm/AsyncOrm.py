@@ -33,7 +33,7 @@ class AsyncORM:
                 UsersInChats.chat_id==chat_id
             ).scalars().first()
             if not uic:
-                uic = UsersInChats(chat_id=chat_id, title=title)
+                uic = UsersInChats(chat_id=chat_id, user_id=user.id, title=title)
                 session.add(uic)
 
             session.commit()
