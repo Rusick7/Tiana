@@ -14,26 +14,32 @@ class AsyncORM:
             await conn.commit()
 
     @staticmethod
-    async def add_user_to_chat(user_id, chat_id, title):
+    async def add_user_to_chat(user_id, name, chat_id, title):
         async with async_session_factory() as session:
-            chat = select(Chats).where(Chats.chat_id==chat_id).scalars().first()
+            chat = await session.execute(
+                select(Chats).where(Chats.chat_id==chat_id)
+            ).scalars().first()
             if not chat:
                 chat = Chats(chat_id=chat_id, title=title)
                 session.add(chat)
                 session.flush()
 
-            user = select(Users).where(Users.user_id==user_id).scalars().first()
+            user = await session.execute(
+                select(Users).where(Users.user_id==user_id)
+            ).scalars().first()
             if not user:
-                user = Users(chat_id=chat_id, title=title)
+                user = Users(user_id=user_id, name=name)
                 session.add(user)
                 session.flush()
 
-            uic = select(UsersInChats).where(
-                UsersInChats.user_id==user_id,
-                UsersInChats.chat_id==chat_id
+            uic = await session.execute(
+                select(UsersInChats).where(
+                    UsersInChats.user_id==user_id,
+                    UsersInChats.chat_id==chat_id
+                )
             ).scalars().first()
             if not uic:
-                uic = UsersInChats(chat_id=chat_id, title=title)
+                uic = UsersInChats(chat_id=chat_id, user_id=user_id)
                 session.add(uic)
 
             session.commit()
