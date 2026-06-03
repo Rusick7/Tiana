@@ -6,6 +6,9 @@ from dataclasses import dataclass, asdict
 import aiofiles
 from aiogram.types import User, Chat
 
+from Database.Orm.AsyncOrm import AsyncORM
+
+
 @dataclass
 class UserState:
     commands_dict: dict
@@ -96,17 +99,18 @@ class Base:
         await self.save_dict(user_id, self.user_state)
 
 
-    async def send(self, text:str|None, from_user_u:User,from_user_t:User, sender_chat: Chat|None) -> str:
+    async def send(self, text:str|None, from_user_u:User, from_user_t:User) -> str:
         # ---------------- получение -------------------
         try:
-            parts: list = text.split('\n') # команда + реплика
+            parts: list[str] = text.split('\n') # команда + реплика
             remark = '\n'.join(parts[1:]) if len(parts) > 1 else '' # только реплика
 
             if len(parts) < 2:
                 parts: list = text.split(' ')
                 remark = ' '.join(parts[1:]) if len(parts) > 1 else ''
 
-            template: str = (await self.get_commands(from_user_u.id))[parts[0].lower()] # ❤ | %u text %t
+            template: str = await AsyncORM.send_response(parts[0].lower()) # ❤ | %u text %t
+            # template: str = (await self.get_commands(from_user_u.id))[parts[0].lower()] # ❤ | %u text %t
 
         except Exception as e:
             print(f'Exception_send {e}')

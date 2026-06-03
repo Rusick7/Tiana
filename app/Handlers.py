@@ -1,8 +1,10 @@
 from aiogram import Router, F
+from aiogram.enums import ChatType
 from aiogram.filters import Command
 from aiogram.types import Message
 
 from app.Base import Base
+from Database.Orm.AsyncOrm import AsyncORM
 
 router = Router()
 base = Base()
@@ -10,13 +12,15 @@ base = Base()
 
 @router.message(Command('start'))
 async def cmd_start(message: Message):
-    await message.answer(f"Hello, {message.from_user.full_name}!",)
-    print(f"message = {message}")
-
+    if message.from_user:
+        await message.answer(f"Hello, {message.from_user.full_name}!",)
+        await AsyncORM.add_user(message.from_user.id, message.from_user.full_name)
+        if message.chat.type != ChatType.PRIVATE:
+            await AsyncORM.add_chat(message.chat.id, message.chat.title)
 
 @router.message(F.reply_to_message, F.text)
 async def rp_command(message: Message):
-    if message.reply_to_message.from_user and message.from_user and not message.reply_to_message.sender_chat:
+    if message.reply_to_message and message.reply_to_message.from_user and message.from_user and not message.reply_to_message.sender_chat:
         try:
             await message.bot.send_message(
                 chat_id = message.chat.id,
@@ -24,8 +28,7 @@ async def rp_command(message: Message):
                 text = await base.send(
                     message.text,
                     message.from_user,
-                    message.reply_to_message.from_user,
-                    message.sender_chat),
+                    message.reply_to_message.from_user),
                 parse_mode='HTML'
             )
         except ValueError as e:
