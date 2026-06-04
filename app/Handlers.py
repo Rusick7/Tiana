@@ -20,19 +20,38 @@ async def cmd_start(message: Message):
 
 @router.message(F.reply_to_message, F.text)
 async def rp_command(message: Message):
-    if message.reply_to_message and message.reply_to_message.from_user and message.from_user and not message.reply_to_message.sender_chat:
+    if message.reply_to_message and message.reply_to_message.from_user and message.from_user and message.text and not message.reply_to_message.sender_chat:
         try:
+            text = await base.send_reply(
+                message.text,
+                message.from_user,
+                message.reply_to_message.from_user),
+
+            if not text: return
+            text:str
+
             await message.bot.send_message(
                 chat_id = message.chat.id,
                 reply_to_message_id = message.reply_to_message.message_id,
-                text = await base.send(
-                    message.text,
-                    message.from_user,
-                    message.reply_to_message.from_user),
+                text=text,
                 parse_mode='HTML'
             )
-        except ValueError as e:
+        except Exception as e:
             print(e)
+
+@router.message(not F.reply_to_message, F.text)
+async def rp_command(message: Message):
+    if message.from_user and message.text:
+        try:
+            await message.bot.send_message(
+                chat_id = message.chat.id,
+                reply_to_message_id = message.message_id,
+                text = await base.send(
+                    text= message.text,
+                    from_user_id=message.from_user.id,
+                    chat_id=message.chat.id
+                )
+            )
         except Exception as e:
             print(e)
 

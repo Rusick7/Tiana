@@ -1,6 +1,6 @@
 import random
 
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, delete
 
 from Database.Models.General import CatsImages, Commands
 from app.Database.Models.Administration import Chats, UsersInChats
@@ -9,14 +9,14 @@ from app.Database.Models.General import Users
 
 
 class AsyncORM:
-    ALLOWED_METHODS = ['add_user', 'add_chat']
+    ALLOWED_METHODS = ['add_user', 'add_chat', 'send_random_cat']
 
     @classmethod
-    async def do_func(cls, func_str):
+    async def do_func(cls, func_str, *args):
         if func_str in cls.ALLOWED_METHODS:
             func = globals().get(func_str)
             if func:
-                return await func()
+                return await func(*args)
             else:
                 return "Функция еще не реализована"
         return None
@@ -87,7 +87,7 @@ class AsyncORM:
             return None
 
     @classmethod
-    async def send_response(cls, trigger_str, user_id:int = None, chat_id:int = None):
+    async def send_response(cls, trigger_str, user_id:int = None, chat_id:int = None, *args) -> None|tuple:
         try:
             async with async_session_factory() as session:
                 query = (
@@ -97,24 +97,41 @@ class AsyncORM:
                         or_(Commands.user_id == user_id, Commands.user_id.is_(None)),
                         or_(Commands.chat_id == chat_id, Commands.chat_id.is_(None))
                     )
-                    # Сортируем, чтобы приватные команды имели приоритет над публичными
+                    # Сортируем, пользовательские команды более приоритетнее публичных
                     .order_by(Commands.user_id.desc(), Commands.chat_id.desc())
                 )
                 command: Commands = await session.execute(query).scalars().first()
 
                 if not command:
-                    return None, None
+                    return None
 
                 response = command.response
 
-                func_res = await cls.do_func(command.function) if command.function else None
+                func_res = await cls.do_func(command.function, *args) if command.function else None
 
                 return response, func_res
-
-        except ValueError as e:
-            print(e)
-            return None
 
         except Exception as e:
             print(e)
             return None
+
+
+    @classmethod
+    async def delete_command(cls, trigger_str, user_id:int = None, chat_id:int = None):
+        try:
+            async with async_session_factory() as session:
+                query = (
+                    delete(Commands)
+                    .where(
+                        Commands.trigger == trigger_str,
+                        Commands.user_id == user_id,
+                        Commands.chat_id == chat_id,
+                    )
+                )
+                await session.execute(query)
+                await session.commit()
+                return True
+
+        except Exception as e:
+            print(f"\033[34m{e}\033[0m")
+            return False
