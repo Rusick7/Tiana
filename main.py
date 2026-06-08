@@ -3,6 +3,7 @@ import asyncio
 from aiofiles import os
 from aiogram import Bot, Dispatcher
 
+from Database.Orm.AsyncOrm import AsyncORM
 from app.Database.Settings import settings
 from app.Handlers import router
 
@@ -11,8 +12,8 @@ async def main():
     if not await os.path.exists('app/Database/data'):
         await os.makedirs('app/Database/data')
 
-    if not await os.path.exists('configurations'):
-        await os.makedirs('configurations')
+    # if not await os.path.exists('configurations'):
+    #     await os.makedirs('configurations')
 
     if not settings.TOKEN:
         raise Exception('BOT_TOKEN environment variable not found')
@@ -21,8 +22,8 @@ async def main():
     dp = Dispatcher()
 
     dp.include_router(router)
+    # await AsyncORM.recreate_tables()
     print('start')
-
     await dp.start_polling(bot, handle_as_tasks=False)
 
 

@@ -1,9 +1,9 @@
 from enum import Enum
 
-from sqlalchemy import BigInteger, CheckConstraint, LargeBinary, not_
+from sqlalchemy import BigInteger, CheckConstraint, LargeBinary, not_, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.Database.Database import Base, str1, str20, str50, ipk, uid, cid
+from app.Database.Database import Base, str20, str50, ipk, uid, cid
 
 
 class Genders(Enum):
@@ -16,6 +16,7 @@ class Users(Base):
     id: Mapped[ipk]
 
     user_id:    Mapped[int] = mapped_column(BigInteger, unique=True)
+    username:   Mapped[str50] = mapped_column(BigInteger, unique=True)
     name:       Mapped[str50]
     gender:     Mapped[Genders|None]
 
@@ -31,9 +32,9 @@ class Commands(Base):
 
     trigger:    Mapped[str50]
     response:   Mapped[str50]
-    mark:       Mapped[str1|None]
+    mark:       Mapped[str|None] = mapped_column(String(1))
 
-    function: Mapped[str20]
+    function: Mapped[str20|None]
 
 class CatsImages(Base):
     __tablename__ = 'cats_images'

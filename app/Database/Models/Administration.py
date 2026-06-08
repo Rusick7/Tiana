@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.Database.Database import Base, ipk, uid, cid, str20, str50, str255
@@ -40,6 +40,15 @@ class UsersInChats(Base):
     is_owner:   Mapped[bool] = mapped_column(default=False)
 
     warn: Mapped[int] = mapped_column(default=0)
+    messages: Mapped[int] = mapped_column(default=0)
+
+class UsersStatsInChats(Base):
+    __tablename__ = 'users_stats_in_chats'
+    id: Mapped[ipk]
+
+    chat_id: Mapped[cid]
+    user_id: Mapped[uid]
+    message: Mapped[str|None] = mapped_column(String(4096))
 
 class WarnWordsChats(Base):
     __tablename__ = 'warn_words_chats'

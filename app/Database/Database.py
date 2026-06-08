@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
-from sqlalchemy import String, ForeignKey
+from sqlalchemy import String, ForeignKey, DateTime, BigInteger
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -15,29 +15,28 @@ async_engine = create_async_engine(
 async_session_factory = async_sessionmaker(async_engine)
 
 
-str1 = Annotated[str, 1]
 str20 = Annotated[str, 20]
 str50 = Annotated[str, 50]
 str255 = Annotated[str, 255]
 ipk = Annotated[int, mapped_column(primary_key=True)]
-uid = Annotated[int, mapped_column(ForeignKey('users.user_id'))]
-cid = Annotated[int, mapped_column(ForeignKey('chats.chat_id'))]
+uid = Annotated[int, mapped_column(BigInteger)]
+cid = Annotated[int, mapped_column(unique=True)]
 
 class Base(DeclarativeBase):
     type_annotation_map = {
-        str1: String(1),
         str20: String(20),
         str50: String(50),
         str255: String(255),
     }
 
-    description: Mapped[str255]
-    notes: Mapped[str255]
+    description: Mapped[str255|None]
+    notes: Mapped[str255|None]
 
-    created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow(),
-        onupdate=datetime.utcnow
-    )
+    # created_at: Mapped[datetime] = mapped_column(
+    #     DateTime(timezone=True),
+    #     default=datetime.now(timezone.utc)
+    # )
+    # updated_at: Mapped[datetime] = mapped_column(
+    #     default=datetime.now(timezone.utc),
+    #     onupdate=lambda: datetime.now(timezone.utc)
+    # )
