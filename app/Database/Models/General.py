@@ -16,7 +16,7 @@ class Users(Base):
     id: Mapped[ipk]
 
     user_id:    Mapped[int] = mapped_column(BigInteger, unique=True)
-    username:   Mapped[str50] = mapped_column(BigInteger, unique=True)
+    username:   Mapped[str50] = mapped_column(unique=True)
     name:       Mapped[str50]
     gender:     Mapped[Genders|None]
 

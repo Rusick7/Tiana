@@ -20,7 +20,7 @@ str50 = Annotated[str, 50]
 str255 = Annotated[str, 255]
 ipk = Annotated[int, mapped_column(primary_key=True)]
 uid = Annotated[int, mapped_column(BigInteger)]
-cid = Annotated[int, mapped_column(unique=True)]
+cid = Annotated[int, mapped_column(ForeignKey("chats.chat_id"), unique=True)]
 
 class Base(DeclarativeBase):
     type_annotation_map = {
