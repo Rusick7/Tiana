@@ -234,17 +234,22 @@ class AsyncORM:
         trigger_str=trigger_str.split(' ')[0].lower()
 
         # функция вставки ссылки только для этого метода
-        async def replace_response(user_: Users|None, _username: str)->str:
+        async def replace_response(user_: Users|None, _username: str|None)->str:
             if user_:
                 return f'<a href="tg://user?id={user_.user_id}">{html.escape(str(user_.name))}</a>'
+            elif username is str:
+                return f'<a href="https://t.me/{_username}">{html.escape(str(_username))}</a>'
             else:
-                return f'<a href="https://t.me/{_username}">{html.escape(_username)}</a>'
+                return ''
 
         try:
             async with async_session_factory() as session:
                 # init переменные
                 _user = await cls.get_user(user_id=user_id, username=username)
                 _target = await cls.get_user(user_id=target_user_id, username=target_username)
+
+                # заранее проверяем что все норм
+                if _target is None and target_username is None: return None
 
                 # создание запроса
                 query = (
